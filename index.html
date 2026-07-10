@@ -6,19 +6,42 @@
     <title>Penyusun Jadwal SMKS Cordova Tebo DKV</title>
     <script>
       // Fix for environments, browser extensions, or platform-level wrappers that attempt to override/wrap window.fetch when it is read-only
-      try {
-        if (window.fetch) {
-          const originalFetch = window.fetch;
-          Object.defineProperty(window, 'fetch', {
-            value: originalFetch,
-            writable: true,
-            configurable: true,
-            enumerable: true
-          });
+      (function() {
+        try {
+          if (window.fetch) {
+            let currentFetch = window.fetch;
+            Object.defineProperty(window, 'fetch', {
+              get() {
+                return currentFetch;
+              },
+              set(newValue) {
+                currentFetch = newValue;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (e) {
+          console.warn('Unable to define fetch getter/setter on window directly, trying prototype:', e);
+          try {
+            if (window.fetch) {
+              let currentFetch = window.fetch;
+              Object.defineProperty(Window.prototype, 'fetch', {
+                get() {
+                  return currentFetch;
+                },
+                set(newValue) {
+                  currentFetch = newValue;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (e2) {
+            console.warn('Unable to define fetch getter/setter on Window.prototype:', e2);
+          }
         }
-      } catch (e) {
-        console.warn('Unable to redefine window.fetch property descriptor:', e);
-      }
+      })();
     </script>
   </head>
   <body>
