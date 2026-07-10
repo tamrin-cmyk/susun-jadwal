@@ -1,0 +1,6 @@
+{
+  "name": "Penyusun Jadwal SMKS Cordova Tebo DKV",
+  "description": "Aplikasi manajemen draf jadwal pelajaran otomatis anti-bentrok untuk SMKS Cordova Tebo khususnya Program Keahlian Desain Komunikasi Visual (DKV), dilengkapi konsultasi kurikulum AI menggunakan Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
