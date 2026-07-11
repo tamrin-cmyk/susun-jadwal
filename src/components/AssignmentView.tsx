@@ -90,13 +90,13 @@ export default function AssignmentView({
       .reduce((sum, curr) => sum + curr.hoursPerWeek, 0);
   };
 
-  // Validation checking for exceeds 48 JP
+  // Validation checking for exceeds 50 JP
   const targetClassId = formData.classId || (classes[0]?.id || '');
   const currentClassJP = totalJPForClass(targetClassId);
   const existingAssign = assignments.find(a => a.id === currentId);
   const oldJP = existingAssign ? existingAssign.hoursPerWeek : 0;
   const newClassTotal = currentClassJP - oldJP + formData.hoursPerWeek;
-  const isExceedingLimit = newClassTotal > 48;
+  const isExceedingLimit = newClassTotal > 50;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +105,7 @@ export default function AssignmentView({
     const cId = formData.classId || (classes[0]?.id || '');
 
     if (isExceedingLimit) {
-      if (!window.confirm(`Perhatian: Total JP untuk kelas ini akan melebihi batas maksimal 48 JP seminggu (Menjadi ${newClassTotal} JP). Tetap simpan?`)) {
+      if (!window.confirm(`Perhatian: Total JP untuk kelas ini akan melebihi batas maksimal toleransi 50 JP seminggu (Menjadi ${newClassTotal} JP). Tetap simpan?`)) {
         return;
       }
     }
@@ -159,22 +159,33 @@ export default function AssignmentView({
         {classes.map(cls => {
           const jpSum = totalJPForClass(cls.id);
           const isIdeal = jpSum >= 28 && jpSum <= 48;
+          const isTolerable = jpSum > 48 && jpSum <= 50;
+          const isExceeded = jpSum > 50;
           return (
             <div key={cls.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400">Total Jam {cls.name}</span>
                 <div className="flex items-baseline space-x-1.5 mt-1">
-                  <span className={`text-2xl font-extrabold ${isIdeal ? 'text-indigo-600' : 'text-amber-600'}`}>
+                  <span className={`text-2xl font-extrabold ${isIdeal ? 'text-indigo-600' : isTolerable ? 'text-amber-600' : isExceeded ? 'text-rose-600' : 'text-slate-600'}`}>
                     {jpSum}
                   </span>
-                  <span className="text-xs font-semibold text-slate-400">/ 48 JP seminggu</span>
+                  <span className="text-xs font-semibold text-slate-400">/ 50 JP seminggu</span>
                 </div>
               </div>
               <div className="mt-3 pt-2.5 border-t border-slate-50 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500 font-medium">Batas Maksimal 48 Jam</span>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${isIdeal ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
-                  <span className={`w-1 h-1 rounded-full mr-1.5 ${isIdeal ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
-                  {jpSum === 0 ? 'Belum Diisi' : isIdeal ? 'Aman' : 'Mendekati Batas'}
+                <span className="text-[11px] text-slate-500 font-medium">Batas Maksimal 50 Jam</span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  isIdeal ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 
+                  isTolerable ? 'bg-amber-50 text-amber-700 border border-amber-100' : 
+                  isExceeded ? 'bg-rose-50 text-rose-700 border border-rose-100' : 
+                  'bg-slate-50 text-slate-700 border border-slate-100'
+                }`}>
+                  <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                    isIdeal ? 'bg-emerald-500' : 
+                    isTolerable ? 'bg-amber-500 animate-pulse' : 
+                    'bg-rose-500 animate-bounce'
+                  }`}></span>
+                  {jpSum === 0 ? 'Belum Diisi' : isIdeal ? 'Aman (<=48 JP)' : isTolerable ? 'Maksimal (50 JP)' : 'Melebihi Batas'}
                 </span>
               </div>
             </div>
@@ -356,13 +367,22 @@ export default function AssignmentView({
 
           {/* Alert Warnings */}
           {formData.classId && (
-            <div className={`p-3 rounded-lg border text-xs font-medium ${isExceedingLimit ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
+            <div className={`p-3 rounded-lg border text-xs font-medium ${
+              newClassTotal > 50 
+                ? 'bg-rose-50 text-rose-700 border-rose-100' 
+                : newClassTotal > 48 
+                  ? 'bg-amber-50 text-amber-700 border-amber-100' 
+                  : 'bg-slate-50 text-slate-600 border-slate-100'
+            }`}>
               <div className="flex items-center space-x-1.5 mb-1">
-                <AlertTriangle className={`w-4 h-4 shrink-0 ${isExceedingLimit ? 'text-rose-500' : 'text-slate-400'}`} />
+                <AlertTriangle className={`w-4 h-4 shrink-0 ${newClassTotal > 50 ? 'text-rose-500' : newClassTotal > 48 ? 'text-amber-500' : 'text-slate-400'}`} />
                 <span className="font-bold">Estimasi Rencana JP Kelas</span>
               </div>
               Kelas <span className="font-bold">{getClassName(targetClassId)}</span> akan memiliki total{' '}
-              <span className={`font-bold ${isExceedingLimit ? 'text-rose-600 font-extrabold text-sm' : 'text-slate-800'}`}>{newClassTotal} JP</span> dari kapasitas maksimal 48 JP per minggu.
+              <span className={`font-bold ${newClassTotal > 50 ? 'text-rose-600 font-extrabold text-sm' : newClassTotal > 48 ? 'text-amber-600 font-extrabold text-sm' : 'text-slate-800'}`}>{newClassTotal} JP</span> dari kapasitas standar 48 JP (Batas Toleransi Maksimal 50 JP) per minggu.
+              {newClassTotal <= 48 && <span className="text-slate-500 block mt-0.5">(Di bawah standar 48 JP - Aman & Valid)</span>}
+              {newClassTotal > 48 && newClassTotal <= 50 && <span className="text-amber-600 block mt-0.5">(Di atas standar 48 JP, batas maksimal toleransi 50 JP - Tetap Valid)</span>}
+              {newClassTotal > 50 && <span className="text-rose-600 block mt-0.5">(Melebihi batas maksimal toleransi 50 JP!)</span>}
             </div>
           )}
 
