@@ -78,7 +78,8 @@ export default function GenerateAIView({
           classes,
           assignments,
           slots,
-          conflicts
+          conflicts,
+          days
         })
       });
       const data = await response.json();

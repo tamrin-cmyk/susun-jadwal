@@ -35,21 +35,28 @@ function getGeminiClient(): GoogleGenAI {
 // API Routes
 app.post("/api/gemini-analysis", async (req, res) => {
   try {
-    const { config, teachers, subjects, classes, assignments, slots, conflicts } = req.body;
+    const { config, teachers, subjects, classes, assignments, slots, conflicts, days } = req.body;
 
     const ai = getGeminiClient();
 
     const systemInstruction = 
-      "Anda adalah seorang konsultan kurikulum dan pakar manajemen sekolah khusus SMK di Indonesia. " +
+      "Anda adalah seorang konsultan kurikulum dan pakar manajemen sekolah khusus SMK Pesantren di Indonesia. " +
       "Tugas Anda adalah meninjau draf jadwal pelajaran, memberikan masukan pedagogis yang membangun, " +
       "menganalisis beban guru (termasuk guru kejuruan DKV), memberikan solusi penanganan konflik draf jadwal, " +
-      "dan memberikan tips optimalisasi agar guru tidak terlalu lelah dan siswa tetap konsentrasi.";
+      "dan memberikan tips optimalisasi agar guru tidak terlalu lelah dan siswa tetap konsentrasi. " +
+      "Sangat penting: Ingatlah bahwa sekolah ini berbasis pesantren/boarding school di mana Hari Jumat diliburkan " +
+      "dan Hari Minggu aktif belajar mengajar (KBM) seperti hari biasa. Jangan menganggap Hari Minggu aktif sebagai kesalahan.";
 
     const prompt = `
 Berikut adalah data draf jadwal pelajaran untuk sekolah:
 Nama Sekolah: ${config?.jenjang || "SMKS"} ${config?.namaInstansi || "Cordova"}
 Lokasi: ${config?.kota || "Tebo"}
 Tahun Ajaran: ${config?.tahunAjaran || "2026/2027"} (${config?.semester || "Ganjil"})
+
+Sistem Hari Belajar (Khas Pesantren):
+- Hari Aktif KBM: ${days ? JSON.stringify(days) : '["Senin", "Selasa", "Rabu", "Kamis", "Sabtu", "Minggu"]'}
+- Hari Libur Sekolah: ${config?.offDays && config.offDays.length > 0 ? JSON.stringify(config.offDays) : '["Jumat"]'}
+- Catatan: Hari Jumat adalah hari libur utama pesantren, sedangkan Hari Minggu adalah hari aktif KBM standar/normal bagi siswa dan guru.
 
 Daftar Kelas:
 ${JSON.stringify(classes?.map((c: any) => c.name), null, 2)}
@@ -65,7 +72,7 @@ Daftar Konflik Detail:
 ${JSON.stringify(conflicts?.map((cf: any) => cf.description), null, 2)}
 
 Berikan analisis komprehensif berformat Markdown yang mencakup:
-1. **Evaluasi Umum**: Apakah draf jadwal ini sudah layak jalan dan sesuai porsi kurikulum SMK?
+1. **Evaluasi Umum**: Apakah draf jadwal ini sudah layak jalan dan sesuai porsi kurikulum SMK Pesantren (dengan KBM hari Minggu dan libur hari Jumat)?
 2. **Analisis Guru Kejuruan (DKV)**: Berikan perhatian khusus pada guru-guru DKV (terutama Guru Tamrin, S.Pd) terkait pembagian jam mengajarnya.
 3. **Saran Distribusi Jam**: Apakah jam pelajaran berat (seperti praktik DKV yang memakan 4-6 JP berturut-turut) sebaiknya diletakkan di pagi hari?
 4. **Rekomendasi Konflik**: Berikan panduan cara menyelesaikan bentrok yang terjadi (jika ada).
