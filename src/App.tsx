@@ -19,10 +19,11 @@ import TimeTemplateView from './components/TimeTemplateView';
 import GenerateAIView from './components/GenerateAIView';
 import PrintView from './components/PrintView';
 import TeachingSummaryView from './components/TeachingSummaryView';
+import ScheduleEditorView from './components/ScheduleEditorView';
 
 // Icons
 import { 
-  LayoutDashboard, Settings, BookOpen, Users, Landmark, ClipboardList, Clock, Sparkles, Printer, GraduationCap, Menu, X, AlertTriangle, Cloud, CloudOff, RefreshCw 
+  LayoutDashboard, Settings, BookOpen, Users, Landmark, ClipboardList, Clock, Sparkles, Printer, GraduationCap, Menu, X, AlertTriangle, Cloud, CloudOff, RefreshCw, Calendar 
 } from 'lucide-react';
 
 export default function App() {
@@ -222,6 +223,12 @@ export default function App() {
   // Conflict calculation
   const conflicts: ScheduleConflict[] = checkConflicts(slots, assignments, teachers, classes);
 
+  // Active days list based on offDays (holidays)
+  // Standard days are Monday to Saturday. If a day is in offDays, we filter it out. Sunday is off by default unless removed.
+  const activeDays = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].filter(
+    day => !(config.offDays || ["Minggu"]).includes(day)
+  );
+
   // Total Scheduled Slots helper (occupied slots)
   const totalSlotsScheduled = slots.filter(s => s.assignmentId && s.assignmentId !== 'BREAK').length;
 
@@ -235,6 +242,7 @@ export default function App() {
     { id: 'assignments', label: 'Beban Penugasan', icon: ClipboardList },
     { id: 'time-templates', label: 'Template Waktu', icon: Clock },
     { id: 'generate-ai', label: 'Generate AI', icon: Sparkles, highlight: true },
+    { id: 'schedule-editor', label: 'Edit Jadwal Manual', icon: Calendar },
     { id: 'print', label: 'Cetak Jadwal', icon: Printer },
     { id: 'recap', label: 'Rekap Mengajar', icon: GraduationCap }
   ];
@@ -477,8 +485,23 @@ export default function App() {
               subjects={subjects}
               classes={classes}
               timeSlots={timeSlots}
-              days={defaultDays}
+              days={activeDays}
               slots={slots}
+              onUpdateSlots={(newSlots) => setSlots(newSlots)}
+              conflicts={conflicts}
+            />
+          )}
+
+          {activeTab === 'schedule-editor' && (
+            <ScheduleEditorView
+              config={config}
+              slots={slots}
+              assignments={assignments}
+              teachers={teachers}
+              subjects={subjects}
+              classes={classes}
+              timeSlots={timeSlots}
+              days={activeDays}
               onUpdateSlots={(newSlots) => setSlots(newSlots)}
               conflicts={conflicts}
             />
@@ -493,7 +516,7 @@ export default function App() {
               subjects={subjects}
               classes={classes}
               timeSlots={timeSlots}
-              days={defaultDays}
+              days={activeDays}
             />
           )}
 

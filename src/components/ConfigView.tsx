@@ -231,6 +231,40 @@ export default function ConfigView({
           </div>
         </div>
 
+        {/* Holiday Settings (Hari Libur) */}
+        <div className="border-t border-slate-100 pt-5">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Pengaturan Hari Libur KBM</label>
+          <p className="text-xs text-slate-500 mb-3">Tandai hari-hari libur sekolah di mana Kegiatan Belajar Mengajar (KBM) ditiadakan. Hari yang ditandai libur akan ditutup dari draf jadwal dan tidak akan diisi oleh AI.</p>
+          
+          <div className="flex flex-wrap gap-2.5">
+            {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day) => {
+              const isOff = (formData.offDays || []).includes(day);
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => {
+                    const currentOffDays = formData.offDays || [];
+                    const newOffDays = isOff
+                      ? currentOffDays.filter(d => d !== day)
+                      : [...currentOffDays, day];
+                    setFormData({ ...formData, offDays: newOffDays });
+                  }}
+                  className={`px-4 py-2 text-xs font-bold rounded-lg border transition flex items-center space-x-1.5 ${
+                    isOff
+                      ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${isOff ? 'bg-rose-500' : 'bg-slate-300'}`} />
+                  <span>{day}</span>
+                  {isOff && <span className="text-[10px] text-rose-500 font-normal italic">(Libur)</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Save Bar */}
         <div className="border-t border-slate-100 pt-5 flex items-center justify-between">
           <div>

@@ -10,6 +10,7 @@ export interface SchoolConfig {
   kota: string;
   alamat: string;
   logoUrl: string;
+  offDays?: string[];
 }
 
 export interface Subject {
@@ -75,5 +76,6 @@ export type ActiveTab =
   | 'assignments'
   | 'time-templates'
   | 'generate-ai'
+  | 'schedule-editor'
   | 'print'
   | 'recap';
