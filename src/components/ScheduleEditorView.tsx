@@ -220,13 +220,49 @@ export default function ScheduleEditorView({
               <tbody className="divide-y divide-slate-100 text-xs">
                 {timeSlots.map((slot) => {
                   if (slot.isBreak) {
+                    if (!slot.day) {
+                      return (
+                        <tr key={slot.id} className="bg-amber-50/10 font-bold italic text-slate-400 border-y border-slate-100">
+                          <td className="py-2 px-2 text-left font-mono text-[10px]">{slot.startTime} - {slot.endTime}</td>
+                          <td className="py-2 px-2">-</td>
+                          <td colSpan={days.length} className="py-2 bg-slate-50/60 uppercase tracking-widest text-[9px] text-slate-400">
+                            {slot.label || 'Istirahat'}
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    // Day-specific activity (like Monday Ceremony)
                     return (
-                      <tr key={slot.id} className="bg-amber-50/10 font-bold italic text-slate-400 border-y border-slate-100">
-                        <td className="py-2 px-2 text-left font-mono text-[10px]">{slot.startTime} - {slot.endTime}</td>
-                        <td className="py-2 px-2">-</td>
-                        <td colSpan={days.length} className="py-2 bg-slate-50/60 uppercase tracking-widest text-[9px] text-slate-400">
-                          {slot.label || 'Istirahat'}
-                        </td>
+                      <tr key={slot.id} className="bg-purple-50/10 font-bold italic border-y border-slate-100 text-xs">
+                        <td className="py-2 px-2 text-left font-mono text-[10px] text-slate-400">{slot.startTime} - {slot.endTime}</td>
+                        <td className="py-2 px-2 text-slate-400">-</td>
+                        {days.map(day => {
+                          const isMatch = day === slot.day;
+                          const isHoliday = (config.offDays || []).includes(day);
+
+                          if (isHoliday) {
+                            return (
+                              <td key={day} className="py-2 px-1.5 bg-rose-50/20 text-slate-300 align-middle">
+                                -
+                              </td>
+                            );
+                          }
+
+                          if (isMatch) {
+                            return (
+                              <td key={day} className="py-2 px-1.5 bg-purple-50 text-purple-700 uppercase tracking-wider text-[10px] font-extrabold border-x border-purple-100/50 align-middle">
+                                {slot.label || 'Kegiatan'}
+                              </td>
+                            );
+                          } else {
+                            return (
+                              <td key={day} className="py-2 px-1.5 text-slate-300 bg-slate-50/30 align-middle">
+                                -
+                              </td>
+                            );
+                          }
+                        })}
                       </tr>
                     );
                   }
@@ -256,7 +292,8 @@ export default function ScheduleEditorView({
 
                         // Check if this specific slot has any conflict
                         const cellConflict = conflicts.find(
-                          cf => cf.classId === selectedClassId && cf.day === day && cf.period === slot.period
+                          cf => (cf.classId === selectedClassId && cf.day === day && cf.period === slot.period) ||
+                                (assignmentInfo && cf.teacherId === assignmentInfo.teacherId && cf.day === day && cf.period === slot.period)
                         );
 
                         return (
@@ -266,17 +303,22 @@ export default function ScheduleEditorView({
                             className="py-2.5 px-1.5 align-middle border-r border-slate-50 last:border-0 cursor-pointer group"
                           >
                             {assignmentInfo ? (
-                              <div className={`p-2 rounded-xl border text-left transition-all shadow-sm relative overflow-hidden ${
-                                cellConflict 
-                                  ? 'bg-rose-50 border-rose-200 hover:border-rose-300' 
-                                  : 'bg-indigo-50/40 border-indigo-100/70 hover:border-indigo-200 hover:bg-indigo-50/80'
-                              }`}>
+                              <div 
+                                title={cellConflict ? cellConflict.description : undefined}
+                                className={`p-2 rounded-xl border text-left transition-all shadow-sm relative overflow-hidden ${
+                                  cellConflict 
+                                    ? (cellConflict.type === 'TEACHER_PREFERRED_MISMATCH' 
+                                        ? 'bg-amber-50 border-amber-200 hover:border-amber-300' 
+                                        : 'bg-rose-50 border-rose-200 hover:border-rose-300') 
+                                    : 'bg-indigo-50/40 border-indigo-100/70 hover:border-indigo-200 hover:bg-indigo-50/80'
+                                }`}
+                              >
                                 <div className="flex items-center justify-between">
                                   <span className="font-extrabold text-indigo-900 text-[10px] tracking-tight truncate">
                                     {assignmentInfo.subjectCode}
                                   </span>
                                   {cellConflict && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                                    <span className={`w-1.5 h-1.5 rounded-full animate-ping ${cellConflict.type === 'TEACHER_PREFERRED_MISMATCH' ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
                                   )}
                                 </div>
                                 <div className="text-[9px] text-slate-500 font-bold mt-1 truncate">

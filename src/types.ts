@@ -26,6 +26,8 @@ export interface Teacher {
   code: string; // Initial/Code, e.g., PL, EK, TR
   name: string;
   nip: string;
+  preferredDays?: string[];
+  unavailableDays?: string[];
 }
 
 export interface ClassItem {
@@ -49,6 +51,7 @@ export interface TimeSlot {
   endTime: string; // "08:00"
   isBreak: boolean;
   label?: string; // e.g., "Upacara", "Istirahat", "Sholat"
+  day?: string; // Optional: Only applies on specific day (e.g. "Senin" for Upacara)
 }
 
 export interface ScheduleSlot {
@@ -59,7 +62,7 @@ export interface ScheduleSlot {
 }
 
 export interface ScheduleConflict {
-  type: 'TEACHER_DOUBLE_BOOKING' | 'CLASS_DOUBLE_BOOKING' | 'OVER_HOURS' | 'INVALID_SLOT';
+  type: 'TEACHER_DOUBLE_BOOKING' | 'CLASS_DOUBLE_BOOKING' | 'OVER_HOURS' | 'INVALID_SLOT' | 'TEACHER_UNAVAILABLE' | 'TEACHER_PREFERRED_MISMATCH';
   description: string;
   day?: string;
   period?: number;

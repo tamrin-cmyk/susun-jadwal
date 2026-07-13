@@ -433,6 +433,7 @@ export default function App() {
           {activeTab === 'teachers' && (
             <TeacherView
               teachers={teachers}
+              activeDays={activeDays}
               onAdd={(teach) => setTeachers([...teachers, teach])}
               onUpdate={(teach) => setTeachers(teachers.map(t => t.id === teach.id ? teach : t))}
               onDelete={(id) => {

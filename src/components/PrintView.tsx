@@ -222,13 +222,42 @@ export default function PrintView({
               <tbody className="divide-y divide-slate-300">
                 {timeSlots.map((slot) => {
                   if (slot.isBreak) {
+                    if (!slot.day) {
+                      return (
+                        <tr key={slot.id} className="bg-slate-50 font-bold border-y-2 border-slate-800 text-[10px] italic">
+                          <td className="border-r-2 border-slate-800 py-2 font-semibold font-mono">{slot.startTime} - {slot.endTime}</td>
+                          <td className="border-r-2 border-slate-800 py-2">-</td>
+                          <td colSpan={days.length} className="py-2 text-center text-slate-500 uppercase tracking-widest bg-slate-100/80">
+                            --- {slot.label || 'Istirahat'} ---
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    // Day-specific activity (like Monday Ceremony)
                     return (
-                      <tr key={slot.id} className="bg-slate-50 font-bold border-y-2 border-slate-800 text-[10px] italic">
-                        <td className="border-r-2 border-slate-800 py-2 font-semibold font-mono">{slot.startTime} - {slot.endTime}</td>
-                        <td className="border-r-2 border-slate-800 py-2">-</td>
-                        <td colSpan={days.length} className="py-2 text-center text-slate-500 uppercase tracking-widest bg-slate-100/80">
-                          --- {slot.label || 'Istirahat'} ---
+                      <tr key={slot.id} className="hover:bg-slate-50/50 transition font-bold border-y-2 border-slate-800 text-[10px] italic">
+                        <td className="border-r-2 border-slate-800 py-3 font-semibold font-mono bg-slate-50/30">
+                          {slot.startTime} - {slot.endTime}
                         </td>
+                        <td className="border-r-2 border-slate-800 py-3 font-bold text-slate-800 bg-slate-50/50">
+                          -
+                        </td>
+                        {days.map(day => {
+                          const isMatch = day === slot.day;
+                          if (isMatch) {
+                            return (
+                              <td key={day} className="border-r-2 border-slate-800 py-3 px-1.5 font-bold text-purple-900 bg-purple-50 align-middle uppercase tracking-widest text-[9px]">
+                                {slot.label || 'Kegiatan'}
+                              </td>
+                            );
+                          }
+                          return (
+                            <td key={day} className="border-r-2 border-slate-800 py-3 px-1.5 font-normal text-slate-300 align-middle">
+                              -
+                            </td>
+                          );
+                        })}
                       </tr>
                     );
                   }

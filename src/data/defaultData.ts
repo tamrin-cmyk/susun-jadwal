@@ -48,15 +48,15 @@ export const defaultSubjects: Subject[] = [
 ];
 
 export const defaultTeachers: Teacher[] = [
-  { id: 't-ra', code: 'RA', name: 'Ryzki Apriliani, S.Kom', nip: '-' },
+  { id: 't-ra', code: 'RA', name: 'Ryzki Apriliani, S.Kom', nip: '-', preferredDays: ['Senin', 'Selasa'] },
   { id: 't-br', code: 'BR', name: 'Bu Ruroh', nip: '-' },
   { id: 't-af', code: 'AF', name: 'Alvi Fauziyah', nip: '-' },
   { id: 't-sp', code: 'SP', name: 'Sapiun', nip: '-' },
   { id: 't-ak', code: 'AK', name: 'Abdul Karim', nip: '-' },
-  { id: 't-ek', code: 'EK', name: 'Eri Kurniawan, S.Pd.I', nip: '-' },
+  { id: 't-ek', code: 'EK', name: 'Eri Kurniawan, S.Pd.I', nip: '-', unavailableDays: ['Rabu'] },
   { id: 't-ha', code: 'HA', name: 'Hasyim Asy\'ari', nip: '-' },
   { id: 't-ub', code: 'UB', name: 'Ubaidillah', nip: '-' },
-  { id: 't-tr', code: 'TR', name: 'Tamrin, S.Pd', nip: '198402122019031005' },
+  { id: 't-tr', code: 'TR', name: 'Tamrin, S.Pd', nip: '198402122019031005', preferredDays: ['Kamis'], unavailableDays: ['Jumat'] },
   { id: 't-vv', code: 'VV', name: 'Vivi Veronika, S.Pd.I', nip: '-' },
   { id: 't-ab', code: 'AB', name: 'Abah Kholiq', nip: '-' },
   { id: 't-zm', code: 'ZM', name: 'ZAIM SH', nip: '-' }
@@ -115,6 +115,7 @@ export const defaultAssignments: Assignment[] = [
 ];
 
 export const defaultTimeSlots: TimeSlot[] = [
+  { id: 'ts-upacara', period: 0, startTime: "07:00", endTime: "07:30", isBreak: true, label: "Upacara Bendera", day: "Senin" },
   { id: 'ts-1', period: 1, startTime: "07:30", endTime: "08:00", isBreak: false },
   { id: 'ts-2', period: 2, startTime: "08:00", endTime: "08:30", isBreak: false },
   { id: 'ts-3', period: 3, startTime: "08:30", endTime: "09:00", isBreak: false },

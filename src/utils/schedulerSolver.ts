@@ -53,6 +53,40 @@ export function checkConflicts(
       } else {
         teacherTimeMap.set(key, slot);
       }
+
+      // Check if teacher is scheduled on an unavailable day
+      if (teacher.unavailableDays && teacher.unavailableDays.includes(slot.day)) {
+        const hasUnavConflict = conflicts.some(
+          c => c.type === 'TEACHER_UNAVAILABLE' && c.teacherId === teacher.id && c.day === slot.day && c.period === slot.period
+        );
+        if (!hasUnavConflict) {
+          conflicts.push({
+            type: 'TEACHER_UNAVAILABLE',
+            description: `Guru ${teacher.name} dijadwalkan pada hari ${slot.day} Jam ke-${slot.period} padahal mengajukan Libur/Off`,
+            day: slot.day,
+            period: slot.period,
+            teacherId: teacher.id,
+            classId: slot.classId
+          });
+        }
+      }
+
+      // Check if teacher preferred days is set and scheduled day is not in preferredDays
+      if (teacher.preferredDays && teacher.preferredDays.length > 0 && !teacher.preferredDays.includes(slot.day)) {
+        const hasPrefConflict = conflicts.some(
+          c => c.type === 'TEACHER_PREFERRED_MISMATCH' && c.teacherId === teacher.id && c.day === slot.day && c.period === slot.period
+        );
+        if (!hasPrefConflict) {
+          conflicts.push({
+            type: 'TEACHER_PREFERRED_MISMATCH',
+            description: `Guru ${teacher.name} dijadwalkan pada hari ${slot.day} Jam ke-${slot.period} (Bukan hari pilihan mengajar: ${teacher.preferredDays.join(', ')})`,
+            day: slot.day,
+            period: slot.period,
+            teacherId: teacher.id,
+            classId: slot.classId
+          });
+        }
+      }
     }
 
     // Check class double booking
@@ -101,7 +135,8 @@ export function solveSchedule(
   assignments: Assignment[],
   classes: ClassItem[],
   days: string[],
-  timeSlots: TimeSlot[]
+  timeSlots: TimeSlot[],
+  teachers: Teacher[] = []
 ): ScheduleSlot[] {
   const resultSlots: ScheduleSlot[] = [];
   const activePeriods = timeSlots.filter(t => !t.isBreak).map(t => t.period);
@@ -109,6 +144,8 @@ export function solveSchedule(
   if (assignments.length === 0 || classes.length === 0 || days.length === 0 || activePeriods.length === 0) {
     return [];
   }
+
+  const teacherLookup = new Map(teachers.map(t => [t.id, t]));
 
   // Copy and shuffle assignments to introduce variety and ease scheduling
   const assignmentPool = [...assignments].sort((a, b) => b.hoursPerWeek - a.hoursPerWeek); // Sort descending to place larger chunks first
@@ -121,7 +158,16 @@ export function solveSchedule(
 
   // Helper functions
   const isTeacherAvailable = (teacherId: string, day: string, period: number) => {
-    return !teacherBookings.has(`${day}-${period}-${teacherId}`);
+    // Check if teacher is double booked
+    if (teacherBookings.has(`${day}-${period}-${teacherId}`)) {
+      return false;
+    }
+    // Check if day is marked as unavailable/request off
+    const teacher = teacherLookup.get(teacherId);
+    if (teacher && teacher.unavailableDays && teacher.unavailableDays.includes(day)) {
+      return false;
+    }
+    return true;
   };
 
   const isClassAvailable = (classId: string, day: string, period: number) => {
@@ -139,64 +185,202 @@ export function solveSchedule(
     });
   };
 
+  // Helper to determine allowed split configurations for a given hours per week
+  const getBlockSplits = (hours: number): number[][] => {
+    if (hours <= 0) return [[]];
+    if (hours === 1) return [[1]];
+    if (hours === 2) return [[2]];
+    if (hours === 3) return [[3]];
+    if (hours === 4) return [[2, 2], [4]];
+    if (hours === 5) return [[3, 2], [5]];
+    if (hours === 6) return [[3, 3], [4, 2], [2, 2, 2], [6]];
+    if (hours === 7) return [[4, 3], [3, 2, 2], [5, 2], [7]];
+    if (hours === 8) return [[4, 4], [4, 2, 2], [3, 3, 2], [2, 2, 2, 2], [8]];
+
+    // Generic partition for hours > 8 with parts >= 2
+    const results: number[][] = [];
+    const partition = (n: number, max: number, current: number[]) => {
+      if (n === 0) {
+        results.push(current);
+        return;
+      }
+      const start = Math.min(n, max);
+      for (let i = start; i >= 2; i--) {
+        partition(n - i, i, [...current, i]);
+      }
+    };
+    partition(hours, hours, []);
+    return results.sort((a, b) => a.length - b.length);
+  };
+
   // We want to group teaching hours together where possible (blocks of 2-4 JP are normal for schools)
   // Let's iterate through each assignment, and allocate its required JP
   for (const assign of assignmentPool) {
-    let remainingHours = assign.hoursPerWeek;
-    
-    // Find consecutive slots in a single day or across days
-    // Standard block sizes: try block of 3 or 2, fallback to 1
-    const targetBlockSizes = [3, 2, 1];
-    
-    // Find options for placing this assignment
-    for (const blockSize of targetBlockSizes) {
-      if (remainingHours <= 0) break;
-      
-      const currentBlock = Math.min(blockSize, remainingHours);
-      
-      // Look for a day and starting period that can accommodate the block
-      let placedBlock = false;
-      
-      for (const day of days) {
-        if (placedBlock) break;
-        
-        // Loop through period slots
-        for (let i = 0; i <= activePeriods.length - currentBlock; i++) {
-          const candidatePeriods = activePeriods.slice(i, i + currentBlock);
-          
-          // Verify if teacher and class are free for ALL candidate periods in the block
-          let isBlockFeasible = true;
-          for (const p of candidatePeriods) {
-            if (!isTeacherAvailable(assign.teacherId, day, p) || !isClassAvailable(assign.classId, day, p)) {
-              isBlockFeasible = false;
-              break;
+    // Sort days to prioritize teacher's preferredDays first
+    const teacher = teacherLookup.get(assign.teacherId);
+    const prefDays = teacher?.preferredDays || [];
+    const sortedDays = [...days].sort((a, b) => {
+      const aPref = prefDays.includes(a);
+      const bPref = prefDays.includes(b);
+      if (aPref && !bPref) return -1;
+      if (!aPref && bPref) return 1;
+      return 0;
+    });
+
+    const possibleSplits = getBlockSplits(assign.hoursPerWeek);
+    let successfullyScheduled = false;
+
+    // Try each valid split configuration
+    for (const split of possibleSplits) {
+      if (successfullyScheduled) break;
+
+      // Search for a placement of this split on distinct days
+      const tryScheduleSplit = (
+        splitParts: number[]
+      ): { day: string; periods: number[] }[] | null => {
+        const placements: { day: string; periods: number[] }[] = [];
+        const usedDays = new Set<string>();
+
+        function search(partIndex: number): boolean {
+          if (partIndex === splitParts.length) {
+            return true;
+          }
+
+          const blockSize = splitParts[partIndex];
+
+          for (const day of sortedDays) {
+            if (usedDays.has(day)) continue;
+
+            // Find consecutive slots of size `blockSize` on this day
+            for (let i = 0; i <= activePeriods.length - blockSize; i++) {
+              const candidatePeriods = activePeriods.slice(i, i + blockSize);
+              
+              // Verify periods are continuous sequential numbers
+              let isConsecutive = true;
+              for (let j = 0; j < candidatePeriods.length - 1; j++) {
+                if (candidatePeriods[j + 1] !== candidatePeriods[j] + 1) {
+                  isConsecutive = false;
+                  break;
+                }
+              }
+              if (!isConsecutive) continue;
+
+              let isBlockFeasible = true;
+              for (const p of candidatePeriods) {
+                if (!isTeacherAvailable(assign.teacherId, day, p) || !isClassAvailable(assign.classId, day, p)) {
+                  isBlockFeasible = false;
+                  break;
+                }
+              }
+
+              if (isBlockFeasible) {
+                // Temporary book
+                placements.push({ day, periods: candidatePeriods });
+                usedDays.add(day);
+                
+                for (const p of candidatePeriods) {
+                  teacherBookings.add(`${day}-${p}-${assign.teacherId}`);
+                  classBookings.set(`${day}-${p}-${assign.classId}`, assign.id);
+                }
+
+                if (search(partIndex + 1)) {
+                  return true;
+                }
+
+                // Backtrack
+                for (const p of candidatePeriods) {
+                  teacherBookings.delete(`${day}-${p}-${assign.teacherId}`);
+                  classBookings.delete(`${day}-${p}-${assign.classId}`);
+                }
+                usedDays.delete(day);
+                placements.pop();
+              }
             }
           }
-          
-          if (isBlockFeasible) {
-            // Allocate the block!
-            for (const p of candidatePeriods) {
-              bookSlot(assign.teacherId, assign.classId, day, p, assign.id);
-            }
-            remainingHours -= currentBlock;
-            placedBlock = true;
-            break;
+
+          return false;
+        }
+
+        if (search(0)) {
+          return placements;
+        }
+        return null;
+      };
+
+      const placements = tryScheduleSplit(split);
+      if (placements) {
+        for (const placement of placements) {
+          for (const p of placement.periods) {
+            resultSlots.push({
+              classId: assign.classId,
+              day: placement.day,
+              period: p,
+              assignmentId: assign.id
+            });
           }
         }
+        successfullyScheduled = true;
       }
     }
 
-    // Fallback: If still has remaining hours and couldn't schedule in clean blocks, place them individually anywhere
-    if (remainingHours > 0) {
-      for (const day of days) {
+    // Fallback: If all preferred splits fail (highly congested schedule),
+    // schedule the remaining hours using any available slots (individual hours)
+    if (!successfullyScheduled) {
+      let remainingHours = assign.hoursPerWeek;
+      
+      // Try to place blocks of 2 if possible first, then 1
+      const fallbackBlockSizes = [2, 1];
+      for (const blockSize of fallbackBlockSizes) {
         if (remainingHours <= 0) break;
         
-        for (const p of activePeriods) {
-          if (remainingHours <= 0) break;
+        const currentBlock = Math.min(blockSize, remainingHours);
+        let placedBlock = false;
+        
+        for (const day of sortedDays) {
+          if (placedBlock) break;
           
-          if (isTeacherAvailable(assign.teacherId, day, p) && isClassAvailable(assign.classId, day, p)) {
-            bookSlot(assign.teacherId, assign.classId, day, p, assign.id);
-            remainingHours--;
+          for (let i = 0; i <= activePeriods.length - currentBlock; i++) {
+            const candidatePeriods = activePeriods.slice(i, i + currentBlock);
+            
+            let isConsecutive = true;
+            for (let j = 0; j < candidatePeriods.length - 1; j++) {
+              if (candidatePeriods[j + 1] !== candidatePeriods[j] + 1) {
+                isConsecutive = false;
+                break;
+              }
+            }
+            if (!isConsecutive) continue;
+
+            let isBlockFeasible = true;
+            for (const p of candidatePeriods) {
+              if (!isTeacherAvailable(assign.teacherId, day, p) || !isClassAvailable(assign.classId, day, p)) {
+                isBlockFeasible = false;
+                break;
+              }
+            }
+            
+            if (isBlockFeasible) {
+              for (const p of candidatePeriods) {
+                bookSlot(assign.teacherId, assign.classId, day, p, assign.id);
+              }
+              remainingHours -= currentBlock;
+              placedBlock = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // Individual fallback for any absolute leftovers
+      if (remainingHours > 0) {
+        for (const day of sortedDays) {
+          if (remainingHours <= 0) break;
+          for (const p of activePeriods) {
+            if (remainingHours <= 0) break;
+            if (isTeacherAvailable(assign.teacherId, day, p) && isClassAvailable(assign.classId, day, p)) {
+              bookSlot(assign.teacherId, assign.classId, day, p, assign.id);
+              remainingHours--;
+            }
           }
         }
       }

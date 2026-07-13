@@ -30,7 +30,8 @@ export default function TimeTemplateView({
     startTime: '07:15',
     endTime: '08:00',
     isBreak: false,
-    label: ''
+    label: '',
+    day: ''
   });
 
   // State for deletion
@@ -42,7 +43,8 @@ export default function TimeTemplateView({
       startTime: '07:15',
       endTime: '08:00',
       isBreak: false,
-      label: ''
+      label: '',
+      day: ''
     });
     setIsEditing(false);
     setCurrentId(null);
@@ -61,7 +63,8 @@ export default function TimeTemplateView({
       startTime: slot.startTime,
       endTime: slot.endTime,
       isBreak: slot.isBreak,
-      label: slot.label || ''
+      label: slot.label || '',
+      day: slot.day || ''
     });
     setIsModalOpen(true);
   };
@@ -96,7 +99,8 @@ export default function TimeTemplateView({
         startTime: formData.startTime,
         endTime: formData.endTime,
         isBreak: formData.isBreak,
-        label: formData.isBreak ? formData.label : undefined
+        label: formData.isBreak ? formData.label : undefined,
+        day: formData.day || undefined
       });
     } else {
       onAdd({
@@ -105,7 +109,8 @@ export default function TimeTemplateView({
         startTime: formData.startTime,
         endTime: formData.endTime,
         isBreak: formData.isBreak,
-        label: formData.isBreak ? formData.label : undefined
+        label: formData.isBreak ? formData.label : undefined,
+        day: formData.day || undefined
       });
     }
     setIsModalOpen(false);
@@ -164,7 +169,14 @@ export default function TimeTemplateView({
                     )}
                   </td>
                   <td className="py-3.5 px-6 font-medium text-slate-700">
-                    {slot.isBreak ? slot.label : `Kegiatan Belajar Mengajar (KBM)`}
+                    <div className="flex items-center space-x-2">
+                      <span>{slot.isBreak ? slot.label : `Kegiatan Belajar Mengajar (KBM)`}</span>
+                      {slot.day && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-100">
+                          Khusus {slot.day}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3.5 px-6 font-semibold text-slate-800">
                     <span className="inline-flex items-center text-xs text-slate-600">
@@ -268,6 +280,23 @@ export default function TimeTemplateView({
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Hari Berlaku</label>
+            <select
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800 bg-white font-medium"
+              value={formData.day || ''}
+              onChange={(e) => setFormData({ ...formData, day: e.target.value })}
+            >
+              <option value="">Semua Hari Kerja</option>
+              {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day) => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Pilih hari tertentu jika slot ini khusus untuk kegiatan seperti Upacara Bendera (Senin) atau Sholat Jumat.
+            </p>
           </div>
 
           <div className="flex space-x-2 pt-4 border-t border-slate-100 mt-6">

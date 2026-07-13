@@ -56,7 +56,7 @@ export default function GenerateAIView({
   const handleGenerateLocal = () => {
     setIsGenerating(true);
     setTimeout(() => {
-      const solved = solveSchedule(assignments, classes, days, timeSlots);
+      const solved = solveSchedule(assignments, classes, days, timeSlots, teachers);
       onUpdateSlots(solved);
       setIsGenerating(false);
       // Clear AI report if slots changed
