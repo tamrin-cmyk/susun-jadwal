@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScheduleSlot, Assignment, Teacher, Subject, ClassItem, TimeSlot, SchoolConfig } from '../types';
-import { Printer, Landmark, Users, LayoutGrid, Calendar, HelpCircle } from 'lucide-react';
+import { Printer, Landmark, Users, LayoutGrid, Calendar, HelpCircle, Award, BookOpen, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface PrintViewProps {
   config: SchoolConfig;
@@ -13,7 +13,7 @@ interface PrintViewProps {
   days: string[];
 }
 
-type ViewMode = 'class' | 'teacher' | 'master';
+type ViewMode = 'class' | 'teacher' | 'master' | 'recap';
 
 export default function PrintView({
   config,
@@ -31,6 +31,30 @@ export default function PrintView({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Calculate stats for each teacher
+  const getTeacherStats = (teacherId: string) => {
+    const teacherAssigns = assignments.filter(a => a.teacherId === teacherId);
+    const totalAssignedJP = teacherAssigns.reduce((sum, curr) => sum + curr.hoursPerWeek, 0);
+    const scheduledJP = slots.filter(slot => {
+      if (!slot.assignmentId || slot.assignmentId === 'BREAK') return false;
+      const assign = assignments.find(a => a.id === slot.assignmentId);
+      return assign?.teacherId === teacherId;
+    }).length;
+
+    const subjectsAndClasses = teacherAssigns.map(a => {
+      const subj = subjects.find(s => s.id === a.subjectId);
+      const cls = classes.find(c => c.id === a.classId);
+      return `${subj?.code || 'Mapel'} di ${cls?.name || 'Kelas'} (${a.hoursPerWeek} JP)`;
+    });
+
+    return {
+      totalAssignedJP,
+      scheduledJP,
+      subjectsAndClasses,
+      status: scheduledJP === totalAssignedJP ? 'MATCH' : scheduledJP > totalAssignedJP ? 'OVER' : 'UNDER'
+    };
   };
 
   // Helper Lookups
@@ -118,6 +142,15 @@ export default function PrintView({
               <LayoutGrid className="w-3.5 h-3.5 mr-1.5" />
               Master Board
             </button>
+            <button
+              onClick={() => setViewMode('recap')}
+              className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition ${
+                viewMode === 'recap' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5 mr-1.5" />
+              Cetak Rekap & Kode
+            </button>
           </div>
 
           {/* Conditional Selectors */}
@@ -194,6 +227,7 @@ export default function PrintView({
             {viewMode === 'class' && `JADWAL PELAJARAN KELAS ${classes.find(c => c.id === selectedClassId)?.name || ''}`}
             {viewMode === 'teacher' && `JADWAL MENGAJAR GURU ${teachers.find(t => t.id === selectedTeacherId)?.name?.toUpperCase() || ''}`}
             {viewMode === 'master' && 'MASTER JADWAL PELAJARAN SEKOLAH (ALL)'}
+            {viewMode === 'recap' && 'REKAPITULASI PEMBAGIAN JAM MENGAJAR GURU & DAFTAR REFERENSI KODE'}
           </h2>
           <p className="text-xs text-slate-500 font-medium">
             Tahun Ajaran: {config.tahunAjaran} | Semester: {config.semester}
@@ -207,6 +241,135 @@ export default function PrintView({
               <HelpCircle className="w-10 h-10 mx-auto text-slate-300 mb-2 animate-bounce" />
               <h4 className="font-bold text-sm text-slate-700">Draf Jadwal Masih Kosong</h4>
               <p className="text-xs text-slate-500 mt-1">Silakan susun jadwal terlebih dahulu di menu "Generate AI" untuk melihat pratinjau cetak.</p>
+            </div>
+          ) : viewMode === 'recap' ? (
+            <div className="space-y-8 text-left text-slate-800">
+              {/* Section 1: Rekapitulasi Mengajar */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 text-indigo-900 print:text-black flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-indigo-600 print:hidden shrink-0" />
+                  I. Rekapitulasi Alokasi Jam Mengajar Guru (Target JP vs Terjadwal)
+                </h3>
+                <table className="w-full border-collapse border-2 border-slate-800 text-xs text-left">
+                  <thead>
+                    <tr className="bg-slate-100 border-b-2 border-slate-800 font-bold text-slate-900">
+                      <th className="border-r-2 border-slate-800 py-2.5 px-3 w-16 text-center">Kode</th>
+                      <th className="border-r-2 border-slate-800 py-2.5 px-3">Nama Lengkap Guru</th>
+                      <th className="border-r-2 border-slate-800 py-2.5 px-3">Mata Pelajaran & Rombel Diampu</th>
+                      <th className="border-r-2 border-slate-800 py-2.5 px-3 text-center w-28">Target Beban</th>
+                      <th className="border-r-2 border-slate-800 py-2.5 px-3 text-center w-28">Terjadwal</th>
+                      <th className="py-2.5 px-3 text-center w-36">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-400">
+                    {teachers.map((teacher) => {
+                      const stats = getTeacherStats(teacher.id);
+                      return (
+                        <tr key={teacher.id} className="hover:bg-slate-50/50">
+                          <td className="border-r-2 border-slate-800 py-2.5 px-3 font-mono font-bold text-center bg-slate-50">
+                            {teacher.code}
+                          </td>
+                          <td className="border-r-2 border-slate-800 py-2.5 px-3">
+                            <div className="font-bold">{teacher.name}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">NIP: {teacher.nip || '-'}</div>
+                          </td>
+                          <td className="border-r-2 border-slate-800 py-2.5 px-3">
+                            {stats.subjectsAndClasses.length === 0 ? (
+                              <span className="text-xs italic text-slate-400">Belum ada penugasan mengajar</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {stats.subjectsAndClasses.map((item, idx) => (
+                                  <span key={idx} className="inline-block bg-slate-100 text-slate-700 text-[10px] font-medium px-2 py-0.5 rounded border border-slate-200 print:border-none print:bg-transparent print:p-0">
+                                    {item}{idx < stats.subjectsAndClasses.length - 1 ? '; ' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="border-r-2 border-slate-800 py-2.5 px-3 text-center font-bold">
+                            {stats.totalAssignedJP} JP
+                          </td>
+                          <td className="border-r-2 border-slate-800 py-2.5 px-3 text-center font-extrabold text-indigo-800 print:text-black bg-indigo-50/10">
+                            {stats.scheduledJP} JP
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold">
+                            {stats.status === 'MATCH' ? (
+                              <span className="text-emerald-700 print:text-black">100% Sesuai</span>
+                            ) : stats.status === 'OVER' ? (
+                              <span className="text-rose-700 font-extrabold print:text-black">Berlebih (+{stats.scheduledJP - stats.totalAssignedJP} JP)</span>
+                            ) : (
+                              <span className="text-amber-700 font-extrabold print:text-black">Belum Lengkap ({stats.scheduledJP}/{stats.totalAssignedJP})</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Section 2: Referensi Kode */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 page-break-before-auto">
+                {/* Kode Guru */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 text-indigo-900 print:text-black flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-indigo-600 print:hidden shrink-0" />
+                    II. Daftar Referensi Kode & Nama Guru
+                  </h3>
+                  <table className="w-full border-collapse border-2 border-slate-800 text-xs text-left">
+                    <thead>
+                      <tr className="bg-slate-100 border-b-2 border-slate-800 font-bold text-slate-900">
+                        <th className="border-r-2 border-slate-800 py-2 px-3 w-20 text-center">Kode Guru</th>
+                        <th className="border-r-2 border-slate-800 py-2 px-3">Nama Lengkap Guru</th>
+                        <th className="py-2 px-3">NIP</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-400">
+                      {teachers.map((t) => (
+                        <tr key={t.id} className="hover:bg-slate-50/50">
+                          <td className="border-r-2 border-slate-800 py-2 px-3 font-mono font-bold text-center bg-slate-50">
+                            {t.code}
+                          </td>
+                          <td className="border-r-2 border-slate-800 py-2 px-3 font-bold">
+                            {t.name}
+                          </td>
+                          <td className="py-2 px-3 font-mono">
+                            {t.nip && t.nip !== '-' ? t.nip : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Kode Mapel */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider mb-2 border-b border-slate-300 pb-1 text-indigo-900 print:text-black flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-indigo-600 print:hidden shrink-0" />
+                    III. Daftar Referensi Kode & Nama Mata Pelajaran (Mapel)
+                  </h3>
+                  <table className="w-full border-collapse border-2 border-slate-800 text-xs text-left">
+                    <thead>
+                      <tr className="bg-slate-100 border-b-2 border-slate-800 font-bold text-slate-900">
+                        <th className="border-r-2 border-slate-800 py-2 px-3 w-24 text-center">Kode Mapel</th>
+                        <th className="py-2 px-3">Nama Mata Pelajaran</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-400">
+                      {subjects.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50/50">
+                          <td className="border-r-2 border-slate-800 py-2 px-3 font-mono font-bold text-center bg-slate-50">
+                            {s.code}
+                          </td>
+                          <td className="py-2 px-3 font-bold">
+                            {s.name}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           ) : (
             <table className="w-full text-center border-collapse border-2 border-slate-800 text-xs font-sans">
